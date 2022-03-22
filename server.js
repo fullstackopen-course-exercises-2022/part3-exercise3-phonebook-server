@@ -1,77 +1,97 @@
+// 3.1: This is phonebook backend step1 ==============================================================
 const express = require('express');
 const app = express();
-
-let notes = [
-    {
-        id: 1,
-        content: "Hello World!",
-        createAt: "2022-16-02",
-        important: true
-    },
-    {
-        id: 2,
-        content: "Client World!",
-        createAt: "2022-17-02",
-        important: false
-    },
-    {
-        id: 3,
-        content: "Hello Client!",
-        createAt: "2022-16-02",
-        important: true
-    },
-]
-
-app.use(express.json())
+const persons = require('./persons');
+const PORT = 3001;
 
 app.get('/', (req, res) => {
-    res.send('<h1>Hello World!</h1>')
+    res.send('<h1>Welcome to the persons API</h1>');
 })
 
-app.post('/api/notes', (req, res) => {
-    const generateId = () => {
-        const maxId = notes.length > 0 ? Math.max(...notes.map(n => n.id)) : 0
-        return maxId + 1
-    }
+app.use(express.json());
 
-    const note = req.body;
-    if(!note.content) {
-        res.status(404).json('Enter some text!')
-    }
+app.get('/api/persons', (req, res) => {
+    res.json(persons);
+})
 
-    const formData = {
-        content: note.content,
-        important: note.important || false,
-        id: generateId(),
-        createdAt: new Date()
-    }
-    notes = notes.concat(formData)
-    console.log(note)
-    res.json(formData);
-});
+// Step one ends here ================================================================================
 
-app.get('/api/notes', (req, res) => {
-    res.send(notes);
-});
 
-app.get('/api/notes/:id', (req, res) => {
-    const noteId = Number(req.params.id);
-    const note = notes.find((note) => note.id === noteId)
-    if(note) {
-        res.json({ data: note, msg: `Note id: ${noteId}, found!`});
+// 3.2: This is phonebook backend step2 ==============================================================
+app.get('/api/persons/info', (req, res) => {
+    const getTotalPersons = `PhoneBook has info for ${persons.length} persons`
+    const getCurrentTime = new Date()
+    res.send(`<h1>${getTotalPersons}</h1><br /> <h1>${getCurrentTime}</h1>`)
+})
+// Step two ends here ================================================================================
+
+
+// 3.3: This is phonebook backend step3 ==============================================================
+app.get('/api/persons/:id', (req, res) => {
+    const personId = Number(req.params.id);
+    const findPerson = persons.find(person => person.id === personId);
+    if(findPerson) {
+        res.json(findPerson);
     } else {
-        res.status(404).json({ msg: `Note id ${noteId}, not found!` })
+        res.status(404).end()
     }
-});
+    console.log(findPerson);
+})
 
-app.delete('/api/notes/:id', (req, res) => {
-    const noteId = Number(req.params.id);
-    notes = notes.filter(note => note.id !== noteId);
+// Step three ends here ==============================================================================
+
+
+
+
+// 3.4: This is phonebook backend step4 ==============================================================
+app.delete('/api/persons/:id', (req, res) => {
+    const personId = Number(req.params.id);
+    persons.filter((person) => person.id !== personId);
     res.status(204).end();
 })
 
-const PORT = 3001;
+// Step four ends here ===============================================================================
+
+
+
+// 3.5: This is phonebook backend step5 ==============================================================
+app.post('/api/persons', (req, res) => {
+    const body = req.body;
+    const generateId = () => {
+        const maxId = persons.length > 0 ?
+            Math.max(...persons.map(p => p.id)) : 0
+        return maxId + 1;
+    }
+
+    const formData = {
+        id: generateId(),
+        name: body.name,
+        number: body.number,
+        createdAt: new Date()
+    }
+    res.json(persons.concat(formData));
+})
+
+// Step five ends here ================================================================================
+
+
+
+
+
+
+
+
+
+// 3.6: This is phonebook backend step6 ==============================================================
+
+
+// Step six ends here ================================================================================
+
+
+
+
+
 
 app.listen(PORT, () => {
-    console.log(`Connected to PORT: ${PORT}`);
+    console.log(`Listening on PORT: ${PORT}`);
 })
