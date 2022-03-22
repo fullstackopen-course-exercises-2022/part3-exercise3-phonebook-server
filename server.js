@@ -1,7 +1,7 @@
 // 3.1: This is phonebook backend step1 ==============================================================
 const express = require('express');
 const app = express();
-const persons = require('./persons');
+let persons = require('./persons');
 const PORT = 3001;
 
 app.get('/', (req, res) => {
@@ -42,11 +42,10 @@ app.get('/api/persons/:id', (req, res) => {
 
 
 
-
 // 3.4: This is phonebook backend step4 ==============================================================
 app.delete('/api/persons/:id', (req, res) => {
     const personId = Number(req.params.id);
-    persons.filter((person) => person.id !== personId);
+    persons = persons.filter((person) => person.id !== personId);
     res.status(204).end();
 })
 
@@ -63,34 +62,28 @@ app.post('/api/persons', (req, res) => {
         return maxId + 1;
     }
 
+    // 3.6: This is phonebook backend step6 ==============================================================
+    if(!body.name || !body.number) {
+        res.status(422).json({ msg: 'A field is empty!' });
+    }
+
+    if(persons.find(person => person.name === body.name)) {
+        res.status(422).json({ msg: 'That name is already taken!' })
+    }
+    // Step six ends here ================================================================================
+
     const formData = {
         id: generateId(),
         name: body.name,
         number: body.number,
         createdAt: new Date()
     }
-    res.json(persons.concat(formData));
+
+    persons = persons.concat(formData);
+    res.json(persons);
 })
 
 // Step five ends here ================================================================================
-
-
-
-
-
-
-
-
-
-// 3.6: This is phonebook backend step6 ==============================================================
-
-
-// Step six ends here ================================================================================
-
-
-
-
-
 
 app.listen(PORT, () => {
     console.log(`Listening on PORT: ${PORT}`);
