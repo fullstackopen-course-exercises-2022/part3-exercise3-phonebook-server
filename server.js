@@ -1,6 +1,7 @@
 // 3.1: This is phonebook backend step1 ==============================================================
 const express = require('express');
 const app = express();
+const requestLogger = require('morgan');
 let persons = require('./persons');
 const PORT = 3001;
 
@@ -9,6 +10,17 @@ app.get('/', (req, res) => {
 })
 
 app.use(express.json());
+
+// 3.7 & 3.8: This is phonebook backend step7 and 8 ==============================================================
+const logger = requestLogger('tiny', (req, res, next) => {
+    console.log(req);
+    console.log(req.method);
+    next();
+})
+
+app.use(logger);
+// Step seven and eight ends here ================================================================================
+
 
 app.get('/api/persons', (req, res) => {
     res.json(persons);
