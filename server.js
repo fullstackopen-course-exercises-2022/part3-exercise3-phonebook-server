@@ -2,8 +2,9 @@
 const express = require('express');
 const app = express();
 const requestLogger = require('morgan');
+const cors = require('cors');
 let persons = require('./persons');
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.get('/', (req, res) => {
     res.send('<h1>Welcome to the persons API</h1>');
@@ -11,11 +12,22 @@ app.get('/', (req, res) => {
 
 app.use(express.json());
 
+const corsOptions = {
+    origin: 'http://localhost:3000'
+}
+
+app.use(cors(corsOptions));
+
 // 3.7 & 3.8: This is phonebook backend step7 and 8 ==============================================================
-const logger = requestLogger('tiny', (req, res, next) => {
-    console.log(req);
-    console.log(req.method);
-    next();
+const logger = requestLogger((tokens, req, res) => {
+    return [
+        tokens.method(req, res),
+        tokens.url(req, res),
+        tokens.status(req, res),
+        tokens.res(req, res, 'Content-Length'), '_',
+        tokens['response-time'](req, res), 'ms',
+        JSON.stringify(req.body)
+    ].join(" ")
 })
 
 app.use(logger);
@@ -57,8 +69,20 @@ app.get('/api/persons/:id', (req, res) => {
 // 3.4: This is phonebook backend step4 ==============================================================
 app.delete('/api/persons/:id', (req, res) => {
     const personId = Number(req.params.id);
-    persons = persons.filter((person) => person.id !== personId);
-    res.status(204).end();
+    const findPerson = persons.find(per => per.id === personId);
+
+    if(!findPerson) {
+        res.status(422).json({ msg: `${findPerson} is not found!` });
+        console.log(`Person: ${findPerson}`)
+    }
+
+    persons = persons.filter((person) => person?.id !== personId);
+    if(persons) {
+        res.status(204).end();
+    } else {
+        res.status(400).json({ msg: `Unable to remove ${findPerson[0]?.name}!` })
+        console.log(`Person: ${findPerson}`)
+    }
 })
 
 // Step four ends here ===============================================================================
