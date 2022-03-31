@@ -4,11 +4,37 @@ const app = express();
 const requestLogger = require('morgan');
 const cors = require('cors');
 let persons = require('./persons');
+const mongoose = require("mongoose");
+const constants = require("constants");
 const PORT = process.env.PORT || 3001;
+require('dotenv').config();
 
 app.get('/', (req, res) => {
     res.send('<h1>Welcome to the persons API</h1>');
 })
+
+const MONGOURI = process.env.MONGODB_URI
+
+mongoose.connect(MONGOURI)
+    .then(() => {
+        console.log('Connected successfully to MongoDB Atlas');
+    })
+    .catch((error) => console.log('ERROR Connecting to MongoDB Atlas: ', error.message));
+
+const personSchema = mongoose.Schema({
+    name: String,
+    number: String
+}, { timestamps: true })
+
+personSchema.set('toJSON', {
+    transform: (doc, option) => {
+        option.id = option._id.toString();
+        delete option._id
+        delete option.__v
+    }
+})
+
+const Person = mongoose.model('person', personSchema);
 
 app.use(express.json());
 
@@ -19,7 +45,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 
-// 3.7 & 3.8: This is phonebook backend step7 and 8 ==============================================================
 const logger = requestLogger((tokens, req, res) => {
     return [
         tokens.method(req, res),
@@ -32,95 +57,90 @@ const logger = requestLogger((tokens, req, res) => {
 })
 
 app.use(logger);
-// Step seven and eight ends here ================================================================================
+
+app.post('/api/persons', (req, res) => {
+    const body = req.body;
+
+    if(!body.name || !body.number) {
+        return res.status(422).json({ msg: 'A field is empty!' });
+    }
+
+    const nameTaken = Person.findOne({ name: body.name });
+
+    if(!nameTaken) {
+        return res.status(422).json({ msg: 'That name is already taken!' })
+    }
+
+    const addPerson = new Person({
+        name: body.name,
+        number: body.number
+    })
+
+    addPerson.save()
+        .then((personSaved) => {
+            res.status(201).json(personSaved)
+        })
+        .catch((error) => console.log(error));
+})
 
 
 app.get('/api/persons', (req, res) => {
-    res.json(persons);
+    Person.find({}).then((result) => {
+        console.log(`Person Object: ${result}`);
+        res.json(result);
+    })
 })
 
-// Step one ends here ================================================================================
-
-
-// 3.2: This is phonebook backend step2 ==============================================================
 app.get('/api/persons/info', (req, res) => {
     const getTotalPersons = `PhoneBook has info for ${persons.length} persons`
     const getCurrentTime = new Date()
     res.send(`<h1>${getTotalPersons}</h1><br /> <h1>${getCurrentTime}</h1>`)
 })
-// Step two ends here ================================================================================
 
-
-// 3.3: This is phonebook backend step3 ==============================================================
-app.get('/api/persons/:id', (req, res) => {
-    const personId = Number(req.params.id);
-    const findPerson = persons.find(person => person.id === personId);
-    if(findPerson) {
-        res.json(findPerson);
-    } else {
-        res.status(404).end()
-    }
-    console.log(findPerson);
+app.get('/api/persons/:id', (req, res, next) => {
+    const personId = req.params.id;
+    Person.findById(personId)
+    .then((person) => {
+        res.status(200).json(person);
+    })
+    .catch((error) => next(error));
 })
 
-// Step three ends here ==============================================================================
-
-
-
-// 3.4: This is phonebook backend step4 ==============================================================
-app.delete('/api/persons/:id', (req, res) => {
-    const personId = Number(req.params.id);
-    const findPerson = persons.find(per => per.id === personId);
-
-    if(!findPerson) {
-        res.status(422).json({ msg: `${findPerson} is not found!` });
-        console.log(`Person: ${findPerson}`)
-    }
-
-    persons = persons.filter((person) => person?.id !== personId);
-    if(persons) {
-        res.status(204).end();
-    } else {
-        res.status(400).json({ msg: `Unable to remove ${findPerson[0]?.name}!` })
-        console.log(`Person: ${findPerson}`)
-    }
+app.put('/api/persons/:id', (req, res, next) => {
+    const personId = req.params.id;
+    const content = req.body;
+    Person.findByIdAndUpdate(personId, {number: content.number}, { new: true })
+    .then((updatedPerson) => {
+        res.status(200).json(updatedPerson);
+    })
+    .catch((error) => next(error));
 })
 
-// Step four ends here ===============================================================================
+app.delete('/api/persons/:id', (req, res, next) => {
+    const personId = req.params.id;
+    Person.findByIdAndDelete(personId)
+    .then(() => {
+        res.status(204).end()
+    })
 
-
-
-// 3.5: This is phonebook backend step5 ==============================================================
-app.post('/api/persons', (req, res) => {
-    const body = req.body;
-    const generateId = () => {
-        const maxId = persons.length > 0 ?
-            Math.max(...persons.map(p => p.id)) : 0
-        return maxId + 1;
-    }
-
-    // 3.6: This is phonebook backend step6 ==============================================================
-    if(!body.name || !body.number) {
-        res.status(422).json({ msg: 'A field is empty!' });
-    }
-
-    if(persons.find(person => person.name === body.name)) {
-        res.status(422).json({ msg: 'That name is already taken!' })
-    }
-    // Step six ends here ================================================================================
-
-    const formData = {
-        id: generateId(),
-        name: body.name,
-        number: body.number,
-        createdAt: new Date()
-    }
-
-    persons = persons.concat(formData);
-    res.json(persons);
+    //    Alternative method to delete a recordx
+    // Person.deleteOne({ findPerson: findPerson })
+    // .then(() => {
+    //     res.status(204).end()
+    // })
+    .catch((error) => next(error));
 })
 
-// Step five ends here ================================================================================
+const errorHandler = (error, req, res, next) => {
+    console.error('Define:', error.name);
+    if(error.name === "CastError") {
+        res.status(400).json({ msg: "Malformed Id." });
+    }
+    next(error);
+}
+
+app.use(errorHandler);
+
 
 app.listen(PORT, () => {
     console.log(`Listening on PORT: ${PORT}`);
