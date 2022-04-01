@@ -68,7 +68,7 @@ app.post('/api/persons', (req, res) => {
     const nameTaken = Person.findOne({ name: body.name });
 
     if(!nameTaken) {
-        return res.status(422).json({ msg: 'That name is already taken!' })
+        return res.status(422).json({ error: 'That name is already taken!' })
     }
 
     const addPerson = new Person({
@@ -80,7 +80,10 @@ app.post('/api/persons', (req, res) => {
         .then((personSaved) => {
             res.status(201).json(personSaved)
         })
-        .catch((error) => console.log(error));
+        .catch((error) => {
+            console.log(error);
+            res.status(500).json({ error: 'Problem with the server.' })
+        });
 })
 
 
@@ -109,9 +112,10 @@ app.get('/api/persons/:id', (req, res, next) => {
 app.put('/api/persons/:id', (req, res, next) => {
     const personId = req.params.id;
     const content = req.body;
-    Person.findByIdAndUpdate(personId, {number: content.number}, { new: true })
+    Person.findByIdAndUpdate(personId, content, { new: true })
     .then((updatedPerson) => {
         res.status(200).json(updatedPerson);
+        console.log(updatedPerson);
     })
     .catch((error) => next(error));
 })
