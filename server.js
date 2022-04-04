@@ -1,48 +1,32 @@
-// 3.1: This is phonebook backend step1 ==============================================================
-const express = require('express');
-const app = express();
-const requestLogger = require('morgan');
-const cors = require('cors');
-let persons = require('./persons');
-const mongoose = require("mongoose");
-const constants = require("constants");
-const PORT = process.env.PORT || 3001;
-require('dotenv').config();
+const express = require('express')
+const app = express()
+const requestLogger = require('morgan')
+const cors = require('cors')
+let persons = require('./persons')
+const mongoose = require('mongoose')
+const PORT = process.env.PORT || 3001
+require('dotenv').config()
+const Person = require('./person.model')
 
 app.get('/', (req, res) => {
-    res.send('<h1>Welcome to the persons API</h1>');
+    res.send('<h1>Welcome to the persons API</h1>')
 })
 
 const MONGOURI = process.env.MONGODB_URI
 
 mongoose.connect(MONGOURI)
     .then(() => {
-        console.log('Connected successfully to MongoDB Atlas');
+        console.log('Connected successfully to MongoDB Atlas')
     })
-    .catch((error) => console.log('ERROR Connecting to MongoDB Atlas: ', error.message));
+    .catch((error) => console.log('ERROR Connecting to MongoDB Atlas: ', error.message))
 
-const personSchema = mongoose.Schema({
-    name: String,
-    number: String
-}, { timestamps: true })
-
-personSchema.set('toJSON', {
-    transform: (doc, option) => {
-        option.id = option._id.toString();
-        delete option._id
-        delete option.__v
-    }
-})
-
-const Person = mongoose.model('person', personSchema);
-
-app.use(express.json());
+app.use(express.json())
 
 const corsOptions = {
     origin: 'http://localhost:3000'
 }
 
-app.use(cors(corsOptions));
+app.use(cors(corsOptions))
 
 
 const logger = requestLogger((tokens, req, res) => {
@@ -53,19 +37,15 @@ const logger = requestLogger((tokens, req, res) => {
         tokens.res(req, res, 'Content-Length'), '_',
         tokens['response-time'](req, res), 'ms',
         JSON.stringify(req.body)
-    ].join(" ")
+    ].join(' ')
 })
 
-app.use(logger);
+app.use(logger)
 
-app.post('/api/persons', (req, res) => {
-    const body = req.body;
+app.post('/api/persons', (req, res, next) => {
+    const body = req.body
 
-    if(!body.name || !body.number) {
-        return res.status(422).json({ msg: 'A field is empty!' });
-    }
-
-    const nameTaken = Person.findOne({ name: body.name });
+    const nameTaken = Person.findOne({ name: body.name })
 
     if(!nameTaken) {
         return res.status(422).json({ error: 'That name is already taken!' })
@@ -81,16 +61,16 @@ app.post('/api/persons', (req, res) => {
             res.status(201).json(personSaved)
         })
         .catch((error) => {
-            console.log(error);
-            res.status(500).json({ error: 'Problem with the server.' })
-        });
+            console.log(error)
+            next(error)
+        })
 })
 
 
 app.get('/api/persons', (req, res) => {
     Person.find({}).then((result) => {
-        console.log(`Person Object: ${result}`);
-        res.json(result);
+        console.log(`Person Object: ${result}`)
+        res.json(result)
     })
 })
 
@@ -101,51 +81,47 @@ app.get('/api/persons/info', (req, res) => {
 })
 
 app.get('/api/persons/:id', (req, res, next) => {
-    const personId = req.params.id;
+    const personId = req.params.id
     Person.findById(personId)
-    .then((person) => {
-        res.status(200).json(person);
-    })
-    .catch((error) => next(error));
+        .then((person) => {
+            res.status(200).json(person)
+        })
+        .catch((error) => next(error))
 })
 
 app.put('/api/persons/:id', (req, res, next) => {
-    const personId = req.params.id;
-    const content = req.body;
-    Person.findByIdAndUpdate(personId, content, { new: true })
-    .then((updatedPerson) => {
-        res.status(200).json(updatedPerson);
-        console.log(updatedPerson);
-    })
-    .catch((error) => next(error));
+    const personId = req.params.id
+    const content = req.body
+    Person.findByIdAndUpdate(personId, content, { runValidators: true, context: true,  new: 'query' })
+        .then((updatedPerson) => {
+            res.status(200).json(updatedPerson)
+            console.log(updatedPerson)
+        })
+        .catch((error) => next(error))
 })
 
 app.delete('/api/persons/:id', (req, res, next) => {
-    const personId = req.params.id;
+    const personId = req.params.id
     Person.findByIdAndDelete(personId)
-    .then(() => {
-        res.status(204).end()
-    })
-
-    //    Alternative method to delete a recordx
-    // Person.deleteOne({ findPerson: findPerson })
-    // .then(() => {
-    //     res.status(204).end()
-    // })
-    .catch((error) => next(error));
+        .then(() => {
+            res.status(204).end()
+        })
+        .catch((error) => next(error))
 })
 
 const errorHandler = (error, req, res, next) => {
-    console.error('Define:', error.name);
-    if(error.name === "CastError") {
-        res.status(400).json({ msg: "Malformed Id." });
+    console.error('Define:', error.name)
+    if(error.name === 'CastError') {
+        res.status(400).json({ msg: 'Malformed Id.' })
+    } else if(error.name === 'ValidationError') {
+        res.status(422).json({ msg: error.message })
     }
-    next(error);
+    next(error)
 }
 
-app.use(errorHandler);
+app.use(errorHandler)
 
 
 app.listen(PORT, () => {
-    console.log(`Listening on PORT: ${PORT}`);
+    console.log(`Listening on PORT: ${PORT}`)
 })
